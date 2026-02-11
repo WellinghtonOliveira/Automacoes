@@ -1,0 +1,26 @@
+{
+  "name": "automacoes",
+  "version": "1.0.0",
+  "description": "Repositório dedicado ao desenvolvimento de automações para otimizar tarefas manuais, aumentar produtividade e reduzir processos repetitivos do dia a dia.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WellinghtonOliveira/Automacoes.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/WellinghtonOliveira/Automacoes/issues"
+  },
+  "homepage": "https://github.com/WellinghtonOliveira/Automacoes#readme",
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "puppeteer": "^24.37.2"
+  }
+}
