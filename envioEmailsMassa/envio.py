@@ -6,6 +6,7 @@ import json  # ← ADICIONADO
 from email.message import EmailMessage
 from typing import List
 import time
+import os
 
 # ---------- CONFIGURAÇÕS ----------
 
@@ -66,8 +67,9 @@ CORPO_HTML    = """
 </html>
 
 """  # (seu HTML continua igual)
-ARQ_LISTA     = "emails.txt"
-DELAY_SEG     = 120
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ARQ_LISTA = os.path.join(BASE_DIR, "emails.txt")
+DELAY_SEG     = 30
 ARQ_PROGRESSO = "progresso.json"  # ← ADICIONADO
 LIMITE_POR_EXEC = 30              # ← ADICIONADO
 # -----------------------------------
@@ -137,4 +139,4 @@ def main():
     print(f"[→] Próximo índice: {indice_atual % total}")
 
 if __name__ == "__main__":
-    main()
+  main()
