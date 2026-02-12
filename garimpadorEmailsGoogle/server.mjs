@@ -1,14 +1,12 @@
-// server.mjs  (ESM – rode com:  node server.mjs )
+// server.mjs
 import puppeteer from 'puppeteer';
-import axios from 'axios';
-import cheerio from 'cheerio';
 import fs from 'fs';
 import pLimit from 'p-limit';
 
 const QUERY = 'site:instagram.com "clínica" "facial" "profissional" "@gmail.com"';
-const CONC = 10;                 // requisições simultâneas
+const CONC = 3;                  // Menos concorrência para o Instagram não te banir
 const OUT_FILE = 'leads_emails.txt';
-const LIMIT = 100;                // máx de links que o Google mostra
+const LIMIT = 50;                // Comece com menos para testar
 
 const limit = pLimit(CONC);
 const seen = new Set(
@@ -24,60 +22,110 @@ function appendEmail(email) {
     seen.add(e);
     fs.appendFileSync(OUT_FILE, e + '\n');
     saved++;
-    console.log(`[+] ${e}  (total ${saved})`);
+    console.log(`[+] ${e} (total ${saved})`);
 }
 
-async function fetchHtml(url) {
-    try {
-        const { data } = await axios.get(url, {
-            timeout: 8000,
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-        });
-        return data;
-    } catch { return null; }
-}
-
-function extractEmails(html) {
-    const $ = cheerio.load(html);
-    const mails = $.text().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) || [];
+function extractEmails(text) {
+    if (!text) return [];
+    const mails = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi) || [];
     return [...new Set(mails.map(m => m.toLowerCase()))];
 }
 
 async function minePage(browser) {
     const page = await browser.newPage();
-    await page.goto('https://www.google.com/search?q=' + encodeURIComponent(QUERY), { waitUntil: 'networkidle2' });
-    await page.waitForFunction(() => !document.body.textContent.includes('detected unusual traffic'), { timeout: 0 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-    const links = [];
-    while (links.length < LIMIT) {
-        const batch = await page.$eval('a[href^="http"]', as =>
+    console.log('⏳ Acessando Google...');
+    await page.goto('https://www.google.com/search?q=' + encodeURIComponent(QUERY), { waitUntil: 'networkidle2' });
+
+    const links = new Set();
+
+    while (links.size < LIMIT) {
+        console.log('🔎 Verificando resultados... (Se houver CAPTCHA, resolva-o agora)');
+
+        // ESPERA INFINITA pelo seletor de busca (dá tempo de resolver o captcha)
+        try {
+            await page.waitForSelector('#search', { timeout: 0 });
+        } catch (e) {
+            console.log('Refazendo busca...');
+            await page.reload({ waitUntil: 'networkidle2' });
+            continue;
+        }
+
+        // Extrai os links
+        const batch = await page.$$eval('#search a', as =>
             as.map(a => a.href)
-                .filter(h => h.includes('instagram.com') && !h.includes('google.com'))
+                .filter(h => h && h.includes('instagram.com/') && !h.includes('google.com'))
         );
-        links.push(...batch);
+
+        batch.forEach(l => links.add(l));
+        console.log(`[i] Total de links coletados: ${links.size}`);
+
+        if (links.size >= LIMIT) break;
+
         const next = await page.$('#pnnext');
-        if (!next) break;
+        if (!next) {
+            console.log("[-] Fim dos resultados ou nova verificação necessária.");
+            break;
+        }
+
+        console.log('➡️ Indo para próxima página...');
         await Promise.all([
             page.click('#pnnext'),
-            page.waitForNavigation({ waitUntil: 'networkidle2' })
-        ]);
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 })
+        ]).catch(() => console.log("Aviso: Lentidão na transição de página."));
     }
+
     await page.close();
-    return [...new Set(links)].slice(0, LIMIT);
+    return Array.from(links).slice(0, LIMIT);
+}
+
+async function scrapeInstagram(browser, url) {
+    return limit(async () => {
+        const page = await browser.newPage();
+        try {
+            // Instagram é pesado, vamos desativar imagens para ser mais rápido
+            await page.setRequestInterception(true);
+            page.on('request', (req) => {
+                if (['image', 'stylesheet', 'font'].includes(req.resourceType())) req.abort();
+                else req.continue();
+            });
+
+            await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+
+            // Extrai o texto visível e o HTML
+            const content = await page.content();
+            const emails = extractEmails(content);
+            emails.forEach(appendEmail);
+        } catch (err) {
+            console.log(`[!] Erro ao abrir ${url}: ${err.message}`);
+        } finally {
+            await page.close();
+        }
+    });
 }
 
 (async () => {
-    console.log('🚀 Capturando lista de links...');
-    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
-    const urls = await minePage(browser);
-    console.log(`🔗 ${urls.length} links únicos. Iniciando crawl...`);
+    console.log('🚀 Iniciando Automador...');
+    const browser = await puppeteer.launch({
+        headless: false, // OBRIGATÓRIO estar false para você ver o CAPTCHA
+        args: ['--no-sandbox', '--window-size=1280,720']
+    });
 
-    await Promise.all(urls.map(u => limit(async () => {
-        const html = await fetchHtml(u);
-        if (!html) return;
-        extractEmails(html).forEach(appendEmail);
-    })));
+    try {
+        const urls = await minePage(browser);
 
-    console.log(`✅ Finalizado. ${saved} novos e-mails salvos.`);
-    await browser.close();
+        if (urls.length > 0) {
+            console.log(`\n🔗 Extraindo e-mails de ${urls.length} perfis...`);
+            await Promise.all(urls.map(u => scrapeInstagram(browser, u)));
+        } else {
+            console.log('❌ Nenhum link foi capturado.');
+        }
+
+    } catch (error) {
+        console.error("Erro crítico:", error);
+    } finally {
+        console.log(`\n✅ Processo finalizado. Novos e-mails: ${saved}`);
+        // await browser.close(); // Comentei para você ver o estado final do navegador
+    }
 })();
