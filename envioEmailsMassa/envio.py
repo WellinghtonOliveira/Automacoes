@@ -7,13 +7,14 @@ from email.message import EmailMessage
 from typing import List
 import time
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ---------- CONFIGURAÇÕS ----------
 
 # config das contas 
 
-# 000devHome@gmail.com  -  jmqg fvep cjnm oluy
-# desenvolvasoftwares@gmail.com  -  irak wyqd plnk wkcf
 
 #==================
 
@@ -76,12 +77,12 @@ LIMITE_POR_EXEC = 30              # ← ADICIONADO
 
 ordemEmail = 1
 
-if (ordemEmail == 0):
-  REMETENTE     = "000devHome@gmail.com"
-  SENHA         = "jmqg fvep cjnm oluy"
+if ordemEmail == 0:
+    REMETENTE = os.getenv("EMAIL_1")
+    SENHA     = os.getenv("SENHA_1")
 else:
-  REMETENTE     = "desenvolvasoftwares@gmail.com"
-  SENHA         = "irak wyqd plnk wkcf"
+    REMETENTE = os.getenv("EMAIL_2")
+    SENHA     = os.getenv("SENHA_2")
 
 
 def ler_lista(caminho: str) -> List[str]:
