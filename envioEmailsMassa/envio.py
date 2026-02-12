@@ -70,11 +70,11 @@ CORPO_HTML    = """
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ARQ_LISTA = os.path.join(BASE_DIR, "emails.txt")
 DELAY_SEG     = 30
-ARQ_PROGRESSO = "progresso.json"  # ← ADICIONADO
+ARQ_PROGRESSO = os.path.join(BASE_DIR, "progresso.json")  # ← ADICIONADO
 LIMITE_POR_EXEC = 30              # ← ADICIONADO
 # -----------------------------------
 
-ordemEmail = 0
+ordemEmail = 1
 
 if (ordemEmail == 0):
   REMETENTE     = "000devHome@gmail.com"
@@ -99,6 +99,8 @@ def salvar_progresso(index: int):
     with open(ARQ_PROGRESSO, "w", encoding="utf-8") as f:
         json.dump({"index": index}, f)
 
+indexCount = 1
+
 def enviar_para(dest: str, remetente: str, senha: str,
                 servidor: str, porta: int, assunto: str, html: str) -> None:
     msg = EmailMessage()
@@ -112,7 +114,8 @@ def enviar_para(dest: str, remetente: str, senha: str,
         smtp.starttls()
         smtp.login(remetente, senha)
         smtp.send_message(msg)
-    print(f"[✓] Enviado para {dest}")
+    print(f"[✓] Enviado para {dest} - {indexCount}")
+    indexCount += 1
 
 def main():
     emails = ler_lista(ARQ_LISTA)
