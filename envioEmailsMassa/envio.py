@@ -73,7 +73,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ARQ_LISTA = os.path.join(BASE_DIR, "emails.txt")
 DELAY_SEG     = 30
 ARQ_PROGRESSO = os.path.join(BASE_DIR, "progresso.json")  # ← ADICIONADO
-LIMITE_POR_EXEC = 40              # ← ADICIONADO
+LIMITE_POR_EXEC = 50              # ← ADICIONADO
 # -----------------------------------
 
 ordemEmail = 0
